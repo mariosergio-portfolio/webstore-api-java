@@ -1,0 +1,58 @@
+# ── Maven ────────────────────────────────────────────────────────────────────
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ── IDE — IntelliJ IDEA ──────────────────────────────────────────────────────
+.idea/
+*.iws
+*.iml
+*.ipr
+
+
+# ── IDE — Eclipse ────────────────────────────────────────────────────────────
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+
+# ── IDE — VS Code ────────────────────────────────────────────────────────────
+.vscode/
+
+# ── IDE — NetBeans ───────────────────────────────────────────────────────────
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# ── Spring Boot ──────────────────────────────────────────────────────────────
+spring-shell.log
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Docker ───────────────────────────────────────────────────────────────────
+.dockerignore
+
+# ── Spring Boot secrets (never commit these) ─────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── CloudFormation secrets (never commit these) ──────────────────────────────
+cloud-formation/**/params-dev.json
+cloud-formation/**/params-staging.json
+cloud-formation/**/params-prod.json

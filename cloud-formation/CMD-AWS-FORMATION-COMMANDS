@@ -1,0 +1,303 @@
+--------- CONFIG CONNECTION TO EXTERNAL GITHUB REPOSITORY (IF REPOSITORY IS PRIVATE) ---------
+
+## two options:
+
+### Option A - OAuth (console, one-time)
+
+1. AWS Console → CodeBuild → Source credentials → Connect to GitHub → OAuth
+2. That's it - all CodeBuild projects in the account/region reuse it automatically.
+3. No changes to the template needed.
+
+STEPS EXECUTED:
+
+Criada connection no CODEBUILDER diretamente no console do AWS CodeBuild, com o nome "webstore-codebuild-connection"
+e o ARN gerado foi salvo em params-dev.json (campo "GitHubConnectionArn").
+NOTE: GitHubConnectionArn has NO default in the template - it MUST be passed via --parameter-overrides at deploy time.
+
+
+### Option B - Personal Access Token (PAT) via SSM
+
+Store the PAT first:
+
+  aws ssm put-parameter `
+    --name /webstore/codebuild/github-token `
+    --value "ghp_xxxxxxxxxxxx" `
+    --type SecureString `
+    --region us-east-1
+
+-------------------------------------------
+
+
+------------- CONFIGURATION - CLOUD FORMATION --------------
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SENSITIVE VALUES  →  load from the params file for your environment.
+# Files are git-ignored; never paste account IDs or ARNs directly in this file.
+#
+#   params-dev.json     ← real dev values (already populated)
+#   params-staging.json ← fill in before deploying to staging
+#   params-prod.json    ← fill in before deploying to prod
+#
+# PowerShell helper — read a value from the JSON file:
+#
+#   $p = Get-Content ./params-dev.json | ConvertFrom-Json
+#   $p.AwsAccountId          # "99999999999"
+#   $p.GitHubConnectionArn   # "arn:aws:codeconnections:..."
+#
+# Or with jq (bash/WSL):
+#   PARAMS=./params-env/params-dev.json
+#   AWS_ACCOUNT_ID=$(jq -r .AwsAccountId $PARAMS)
+#   GITHUB_CONNECTION_ARN=$(jq -r .GitHubConnectionArn $PARAMS)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+# [1/8] VPC (VPC, Subnets, Security Groups, etc.) - only needed once per product
+aws cloudformation deploy `
+  --stack-name dev-webstore-vpc `
+  --template-file ./aws-vpc-stack.yml `
+  --region us-east-1 `
+  --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND `
+  --parameter-overrides `
+    Environment=dev `
+    ProductName=webstore
+
+
+# [2/8] ECS INFRA - PER PRODUCT (VPC, Subnets, Security Groups, ALB, Target Group, ECS Cluster, etc.)
+
+# PowerShell: $p = Get-Content ./params-dev.json | ConvertFrom-Json
+aws cloudformation deploy `
+  --template-file ./aws-ecs-infra-stack.yml `
+  --stack-name dev-webstore-ecs-infra `
+  --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND `
+  --region us-east-1 `
+  --parameter-overrides `
+    Environment=dev `
+    ProductName=webstore `
+    AwsAccountId=$($p.AwsAccountId)
+
+
+# [3/8] BUILD/DEPLOYMENT per APP COMPONENT (CodeBuild project, ECR repository, etc.) - only needed once per component
+
+# PowerShell: $p = Get-Content ./params-dev.json | ConvertFrom-Json
+aws cloudformation deploy `
+   --template-file ./aws-codebuild-stack.yml `
+   --stack-name dev-webstore-catalog-codebuild `
+   --capabilities CAPABILITY_NAMED_IAM `
+   --region us-east-1 `
+   --parameter-overrides `
+       Environment=dev `
+       ProductName=webstore `
+       AwsAccountId=$($p.AwsAccountId) `
+       AppServiceName=catalog `
+       GitHubOwner=$($p.GitHubOwner) `
+       GitHubRepo=$($p.GitHubRepo) `
+       GitHubBranch=$($p.GitHubBranch) `
+       GitHubConnectionArn=$($p.GitHubConnectionArn)
+
+
+# [4/8] IAM per APP COMPONENT (ECS task role, execution role, etc.) - only needed once per component
+aws cloudformation deploy `
+  --stack-name dev-webstore-catalog-iam `
+  --template-file ./aws-iam-stack.yml `
+  --region us-east-1 `
+  --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND `
+  --parameter-overrides `
+    Environment=dev `
+    ProductName=webstore `
+    AppServiceName=catalog
+
+
+# [5/8] PUT SSM PARAMETER (IMAGE TAG) - per APP COMPONENT (ECS task definition reads the image tag from SSM Parameter Store)
+aws ssm put-parameter `
+  --name dev-webstore-catalog-imageTag `
+  --value 1.0.0 `
+  --type String `
+  --region us-east-1 `
+  # --overwrite `
+  --tags Key=Environment,Value=dev `
+             Key=ProductName,Value=webstore `
+             Key=AppServiceName,Value=catalog `
+             Key=Layer,Value=infrastructure
+
+
+
+# [6/8] ECS SERVICES - per APP COMPONENT (ECS task definition, ECS service, ALB listener rule, etc.)
+
+# NOTE: The ImageTag parameter is NO MORE REQUIRED as input for deploy aws-ecs-stack.
+ The ECS task definition now reads the image tag from SSM Parameter Store.
+
+# PowerShell: $p = Get-Content ./params-dev.json | ConvertFrom-Json
+aws cloudformation deploy `
+  --template-file ./aws-ecs-service-stack.yml `
+  --stack-name dev-webstore-catalog-ecs-service `
+  --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND `
+  --region us-east-1 `
+  --parameter-overrides `
+    Environment=dev `
+    ProductName=webstore `
+    AppServiceName=catalog `
+    ListenerRulePriority=10 `
+    AwsAccountId=$($p.AwsAccountId)
+
+
+# UPDATE (BEST OPTION INSTEAD "aws ecs describe-task-definition"):
+ If your ECS resources (task definition, service, cluster) are defined
+ in aws-ecs-stack.yml, the CloudFormation approach is better
+ - and the manual register-task-definition approach becomes actively risky in that context.
+#
+aws cloudformation update-stack `
+    --stack-name dev-webstore-catalog-ecs-service`
+    --use-previous-template `
+    --parameters `
+      ParameterKey=ProductName,UsePreviousValue=true `
+      ParameterKey=Environment,UsePreviousValue=true `
+      ParameterKey=AppComponentName,UsePreviousValue=true `
+      ParameterKey=ContainerPort,UsePreviousValue=true `
+      ParameterKey=HealthCheckPath,UsePreviousValue=true `
+      ParameterKey=HealthCheckIntervalSeconds,UsePreviousValue=true `
+      ParameterKey=HealthCheckTimeoutSeconds,UsePreviousValue=true `
+      ParameterKey=HealthyThresholdCount,UsePreviousValue=true `
+      ParameterKey=UnhealthyThresholdCount,UsePreviousValue=true `
+      ParameterKey=ListenerRulePriority,UsePreviousValue=true `
+      ParameterKey=TaskCpu,UsePreviousValue=true `
+      ParameterKey=TaskMemory,UsePreviousValue=true `
+      ParameterKey=LogRetentionDays,UsePreviousValue=true `
+      ParameterKey=DesiredCount,ParameterValue=3 `
+    --region us-east-1
+
+
+# [7/8] CI/CD PIPELINE TRIGGER - per APP COMPONENT (EventBridge -> Lambda -> ECS redeploy)
+# After this stack is deployed every successful CodeBuild build automatically
+# registers a new ECS task definition revision and force-redeploys the ECS service.
+# No manual redeployment step needed.
+#
+# All resource names (CodeBuild project, ECR URI, ECS cluster/service/task family,
+# container name, SSM parameter) are derived from ProductName + AppServiceName +
+# Environment - no extra parameters required.
+
+# PowerShell: $p = Get-Content ./params-dev.json | ConvertFrom-Json
+aws cloudformation deploy `
+  --template-file aws-pipeline-stack.yml `
+  --stack-name dev-webstore-catalog-pipeline `
+  --capabilities CAPABILITY_NAMED_IAM `
+  --region us-east-1 `
+  --parameter-overrides `
+    Environment=dev `
+    ProductName=webstore `
+    AwsAccountId=$($p.AwsAccountId) `
+    AppServiceName=catalog
+
+
+# [8/8] VERIFY PIPELINE STACK DEPLOYED CORRECTLY
+# Inspect Lambda logs after a build to confirm the auto-deploy fired:
+aws logs tail /aws/lambda/dev-webstore-catalog-deploy-trigger --follow --region us-east-1
+
+# Check the current deployed image tag in SSM:
+aws ssm get-parameter `
+  --name dev-webstore-catalog-imageTag `
+  --region us-east-1 `
+  --query "Parameter.Value" `
+  --output text
+
+
+
+UTILS: (Formation)
+
+aws cloudformation delete-stack --stack-name dev-webstore-codebuild
+aws cloudformation delete-stack --stack-name dev-webstore-ecs
+
+aws cloudformation describe-stacks `
+    --stack-name dev-webstore-ecs `
+    --region us-east-1 `
+    --query "Stacks[0].Outputs[?OutputKey=='AlbDnsName'].OutputValue" `
+    --output text
+
+# continue-update-rollback or update-stack
+aws cloudformation continue-update-rollback `
+   --stack-name dev-webstore-ecs
+
+-------------------------------------------
+
+
+
+
+------------- OPERATION - REDEPLOYMENT --------------
+
+### Step 1 - Build & push new image to ECR (via CodeBuild)
+
+  aws codebuild start-build `
+    --project-name dev-webstore-catalog-codebuild `
+    --region us-east-1 `
+    --environment-variables-override name=IMAGE_TAG,value=1.0.0,type=PLAINTEXT
+    # --source-version develop
+
+
+  # NOT REQUIRED: Get the build ID from the start-build output, then:
+  aws codebuild batch-get-builds `
+    --ids <build-id> `
+    --region us-east-1 `
+    --query "builds[0].{status:buildStatus,phase:currentPhase}"
+
+
+### Step 2 - Force ECS to redeploy with the new image
+
+Option A - force new deployment (fastest, no CloudFormation needed):
+
+# RUN THIS COMMAND AFTER A SUCCESSFUL BUILD (Step 1) TO FORCE ECS TO REDEPLOY THE SERVICE WITH THE NEW IMAGE:
+aws ecs update-service `
+    --cluster dev-webstore-cluster `
+    --service dev-webstore-catalog-service `
+    --desired-count 3 `
+    --force-new-deployment `
+    --region us-east-1
+
+
+# RESTORE ONE SPECIFIC TASK DEFINITION VERSION (if needed)
+  aws ecs update-service `
+    --cluster dev-webstore-cluster `
+    --service dev-webstore-catalog-service `
+    --force-new-deployment `
+    --region us-east-1 `
+    --task-definition dev-webstore-task:5  #OPTIONAL: specify the task definition version to use (latest is default)
+
+
+UTILS: (Operations)
+
+aws ecr describe-images `
+  --repository-name dev-webstore-repo `
+  --region us-east-1 `
+  --query 'sort_by(imageDetails,& imagePushedAt)[*].[imageTags[0],imagePushedAt]' `
+  --output table
+
+
+aws ecs list-task-definition-families --region us-east-1
+
+aws ecs list-task-definitions `
+  --family-prefix dev-webstore-catalog-task `
+  --region us-east-1 `
+  --sort DESC
+
+aws ecs describe-task-definition `
+  --task-definition dev-webstore-catalog-task:5 `
+  --query 'taskDefinition.containerDefinitions[*].image'
+
+--------------------------------------------------------
+# CREATE A NEW TASK DEFINITION VERSION (if needed)
+
+aws ecs describe-task-definition `
+  --task-definition dev-webstore-catalog-task:5 `
+  --region us-east-1 `
+  --query 'taskDefinition' > old-task-def.json
+
+# strip fields register-task-definition doesn't accept
+jq --arg IMAGE "$NEW_IMAGE" --arg NAME "$CONTAINER_NAME" `
+  '.containerDefinitions |= map(if .name == $NAME then .image = $IMAGE else . end)
+   | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+         .compatibilities, .registeredAt, .registeredBy)' `
+  old-task-def.json > old-task-def-clean.json
+
+aws ecs register-task-definition `
+  --region us-east-1 `
+  --cli-input-json file://old-task-def-clean.json
+
+--------------------------------------------------------
