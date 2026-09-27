@@ -97,6 +97,10 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: !Sub "arn:aws:logs:*:*:log-group:/ecs/${Environment}-${ProductName}-${AppServiceName}*"
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:*:*:secret:${Environment}-${ProductName}-${AppServiceName}-db-secret*"
       Tags:
         - Key: AppServiceName
           Value: !Ref AppServiceName

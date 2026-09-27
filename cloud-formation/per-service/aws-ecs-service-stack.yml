@@ -20,6 +20,7 @@ Description: "Generic - ECS service for one AppComponent microservice (deployed 
 #   - aws-iam-stack.yml       (task execution role, task role - per component)
 #   - aws-ecs-infra-stack.yml (ECS cluster, ALB listener ARN)
 #   - aws-codebuild-stack.yml (ECR repository URI)
+#   - aws-rds-aurora-stack.yml (db endpoint/port/name, db secret ARN)
 #
 # Exports:
 #   - ${Environment}-${ProductName}-${AppServiceName}-ecs-service-name
@@ -179,6 +180,18 @@ Resources:
               Value: !Ref Environment
             - Name: SERVER_PORT
               Value: !Sub "${ContainerPort}"
+            - Name: DB_HOST
+              Value:
+                Fn::ImportValue: !Sub "${Environment}-${ProductName}-${AppServiceName}-db-endpoint"
+            - Name: DB_PORT
+              Value:
+                Fn::ImportValue: !Sub "${Environment}-${ProductName}-${AppServiceName}-db-port"
+            - Name: DB_NAME
+              Value:
+                Fn::ImportValue: !Sub "${Environment}-${ProductName}-${AppServiceName}-db-name"
+            - Name: DB_SECRET_ARN
+              Value:
+                Fn::ImportValue: !Sub "${Environment}-${ProductName}-${AppServiceName}-db-secret-arn"
           LogConfiguration:
             LogDriver: awslogs
             Options:
