@@ -74,7 +74,15 @@ Parameters:
   HealthCheckPath:
     Type: String
     Default: /actuator/health
-    Description: "ALB target group health-check path."
+    Description: >
+      ALB target group health-check path, relative to the service's own
+      context path (NOT the full path — do not include /<AppServiceName>
+      here). CloudFormation parameters cannot reference another parameter in
+      their Default, so this stays just the suffix; the TargetGroup resource
+      below builds the actual path as /<AppServiceName><HealthCheckPath> via
+      !Sub. The application must run with
+      server.servlet.context-path=/<AppServiceName> to match the ALB's
+      path-based routing rule (/<AppServiceName>/*).
 
   HealthCheckIntervalSeconds:
     Type: Number
@@ -219,7 +227,7 @@ Resources:
       Port: !Ref ContainerPort
       TargetType: ip
       HealthCheckProtocol: HTTP
-      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckPath: !Sub "/${AppServiceName}${HealthCheckPath}"
       HealthCheckIntervalSeconds: !Ref HealthCheckIntervalSeconds
       HealthCheckTimeoutSeconds: !Ref HealthCheckTimeoutSeconds
       HealthyThresholdCount: !Ref HealthyThresholdCount

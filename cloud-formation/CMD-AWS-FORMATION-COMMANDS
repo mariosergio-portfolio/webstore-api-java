@@ -162,6 +162,13 @@ aws ssm put-parameter `
 # NOTE: The ImageTag parameter is NO MORE REQUIRED as input for deploy aws-ecs-stack.
  The ECS task definition now reads the image tag from SSM Parameter Store.
 
+# NOTE ON HealthCheckPath: do NOT pass "/$AppServiceName/actuator/health" here.
+# The template already builds the target group's health-check path as
+# "/${AppServiceName}${HealthCheckPath}", so HealthCheckPath must stay just the
+# suffix (default "/actuator/health"). The application must run with
+# server.servlet.context-path=/$AppServiceName to match. Passing the combined
+# path here would double it up (e.g. /webstore/webstore/actuator/health).
+
 # PowerShell: $p = Get-Content ./params-dev.json | ConvertFrom-Json
 aws cloudformation deploy `
   --template-file ./per-service/aws-ecs-service-stack.yml `
