@@ -57,11 +57,18 @@ OPTION 2:
 # ─────────────────────────────────────────────────────────────────────────────
 # SHARED VARIABLES - set these once per shell session; every stack name and
 # --parameter-overrides value below is built from them (never hardcode the
-# "dev-webstore" prefix or the component name directly in a command).
-$Environment    = "dev"
-$ProductName    = "webstore"
-$StackPrefix    = "$Environment-$ProductName"          # -> "dev-webstore"
-$AppServiceName = "catalog"
+# "dev-webstore" prefix, the component name, or a sensitive value directly
+# in a command). This is the plain-variable alternative to OPTION 1's
+# params-dev.json + $p approach - fill in the sensitive ones below yourself.
+$Environment         = "dev"
+$ProductName         = "<fill your product name>"
+$StackPrefix         = "$Environment-$ProductName" # -> "dev-yourproduct"
+$AppServiceName      = "<fill your app service name>"
+$AwsAccountId        = "<fill in - 12-digit AWS account ID>"
+$GitHubConnectionArn = "<fill in - arn:aws:codeconnections:...>"
+$GitHubOwner         = "<fill in - GitHub org or user>"
+$GitHubRepo          = "<fill in - GitHub repository name>"
+$GitHubBranch        = "main"
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -94,7 +101,7 @@ aws cloudformation deploy `
 
 # PowerShell: $p = Get-Content ./params-dev.json | ConvertFrom-Json
 aws cloudformation deploy `
-   --template-file ./aws-codebuild-stack.yml `
+   --template-file ./per-service/aws-codebuild-stack.yml `
    --stack-name "$StackPrefix-$AppServiceName-codebuild" `
    --capabilities CAPABILITY_NAMED_IAM `
    --region us-east-1 `
@@ -112,7 +119,7 @@ aws cloudformation deploy `
 # [4/9] IAM per APP COMPONENT (ECS task role, execution role, etc.) - only needed once per component
 aws cloudformation deploy `
   --stack-name "$StackPrefix-$AppServiceName-iam" `
-  --template-file ./aws-iam-stack.yml `
+  --template-file ./per-service/aws-iam-stack.yml `
   --region us-east-1 `
   --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND `
   --parameter-overrides `
@@ -126,7 +133,7 @@ aws cloudformation deploy `
 # the ECS SERVICES stack (step 7), which imports DB_HOST/DB_PORT/DB_NAME/DB_SECRET_ARN from it.
 aws cloudformation deploy `
   --stack-name "$StackPrefix-$AppServiceName-rds" `
-  --template-file ./aws-rds-aurora-stack.yml `
+  --template-file ./per-service/aws-rds-aurora-stack.yml `
   --region us-east-1 `
   --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND `
   --parameter-overrides `
@@ -157,7 +164,7 @@ aws ssm put-parameter `
 
 # PowerShell: $p = Get-Content ./params-dev.json | ConvertFrom-Json
 aws cloudformation deploy `
-  --template-file ./aws-ecs-service-stack.yml `
+  --template-file ./per-service/aws-ecs-service-stack.yml `
   --stack-name "$StackPrefix-$AppServiceName-ecs-service" `
   --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND `
   --region us-east-1 `
@@ -166,7 +173,7 @@ aws cloudformation deploy `
     ProductName=$ProductName `
     AppServiceName=$AppServiceName `
     ListenerRulePriority=10 `
-    AwsAccountId=$($p.AwsAccountId)
+    AwsAccountId=$AwsAccountId
 
 
 # UPDATE (BEST OPTION INSTEAD "aws ecs describe-task-definition"):
@@ -206,14 +213,14 @@ aws cloudformation update-stack `
 
 # PowerShell: $p = Get-Content ./params-dev.json | ConvertFrom-Json
 aws cloudformation deploy `
-  --template-file aws-pipeline-stack.yml `
+  --template-file ./per-service/aws-pipeline-stack.yml `
   --stack-name "$StackPrefix-$AppServiceName-pipeline" `
   --capabilities CAPABILITY_NAMED_IAM `
   --region us-east-1 `
   --parameter-overrides `
     Environment=$Environment `
     ProductName=$ProductName `
-    AwsAccountId=$($p.AwsAccountId) `
+    AwsAccountId=$AwsAccountId `
     AppServiceName=$AppServiceName
 
 

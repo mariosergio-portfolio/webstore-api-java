@@ -73,8 +73,11 @@ Parameters:
 
   AuroraEngineVersion:
     Type: String
-    Default: "15.4"
-    Description: "Aurora PostgreSQL engine version."
+    Default: "15.19"
+    Description: >
+      Aurora PostgreSQL engine version. Verify it is still current for your account/region
+      before deploying: aws rds describe-db-engine-versions --engine aurora-postgresql
+      --query "DBEngineVersions[].EngineVersion" --output table
 
   BackupRetentionDays:
     Type: Number
