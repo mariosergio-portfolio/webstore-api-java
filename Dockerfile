@@ -22,5 +22,5 @@ EXPOSE 8080
 
 ENTRYPOINT ["java", \
   "-Djava.security.egd=file:/dev/./urandom", \
-  "-Dspring.profiles.active=dev", \
+# "-Dspring.profiles.active=dev", \
   "-jar", "app.jar"]

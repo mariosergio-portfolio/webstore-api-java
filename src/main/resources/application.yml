@@ -2,8 +2,9 @@ spring:
   application:
     name: webstore-java
   profiles:
-    #active: devPostgres
-    active: dev
+    #active: postgres
+    #active: h2
+    active: aws-rds
   flyway:
     enabled: true
     locations: classpath:db/migration
