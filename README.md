@@ -131,49 +131,43 @@ Base path: `/api`
 | `MethodArgumentNotValidException` | 400 | Jakarta Bean Validation failed |
 
 
-## CloudFormation
+## Deploy on AWS
 
-Infrastructure is split so that networking/compute is **shared once per environment**,
-while each microservice (`catalog`, `cart`) owns its **own** build pipeline, auto-deploy
-trigger, ECS service, target group, and SSM parameter. See
-[cloudFormation/generic/aws-architecture.txt](doc/aws-architecture.txt)
-for the full diagram.
+This repository contains only the application. For more details on how to deploy it on AWS
+(CloudFormation + ECS), see: https://github.com/mariosergio-portfolio/iac-aws-cloud-formation/
 
-```
-SHARED (deployed once per environment)
-  VPC stack        → VPC, subnets, IGW, NAT, security groups
-  ECS-infra stack  → ECS Cluster + Application Load Balancer + Listener
+### Why `buildspec.yml`?
 
-PER SERVICE (deployed once per microservice: catalog, cart)
-  IAM stack        → ECS task execution role + task role
-  CodeBuild stack  → ECR repo + CodeBuild project (GitHub → Docker → ECR)
-  Pipeline stack   → EventBridge + Lambda: auto-redeploys ECS on build success
-  ECS-service stack→ ECS Service + Target Group + ALB path rule (/<service>/*)
-  SSM Parameter    → /<env>-webstore-<service>-imageTag
-```
+`buildspec.yml` (at the repository root) is the build script that **AWS CodeBuild** reads to know
+how to build this application. It lives with the application code because the build steps
+depend on the code (the `Dockerfile`), while the infrastructure repository only provisions the
+CodeBuild project that runs it. CodeBuild looks for this file automatically, so without it the
+build has no instructions. It:
 
-```
-CodeBuild (per service) → ECR (per service)
-        │ on SUCCEEDED
-        ▼
-EventBridge → Lambda (per service) → ECS Service (per service, shared cluster)
-                                            │
-                                            ▼
-                              Target Group (per service) ← ALB (shared) ← internet
-                              
-```
+1. Logs in to Amazon ECR.
+2. Builds the Docker image from the `Dockerfile`.
+3. Pushes the image to ECR, tagged `${ECR_REPO}:${IMAGE_TAG}`.
+4. Writes `imageDetail.json` (the pushed image URI) as a build artifact for downstream deploy steps.
 
-**Deploy order:** VPC → ECS-infra → *for each service:* IAM → CodeBuild → ECS-service → Pipeline.
+The values `AWS_DEFAULT_REGION`, `AWS_ACCOUNT_ID`, `ECR_REPO` and `IMAGE_TAG` are supplied as
+environment variables by the CodeBuild project (`ECR_REPO` and `IMAGE_TAG` have defaults in the file).
 
-Current active stacks live under `cloudFormation/ecs-simple/` (single-service). The
-multi-service-ready templates referenced above live under `cloudFormation/generic/per-service/`.
+## Configuration (`.env.example`)
 
+The application reads its database connection and public URL from environment variables, so no
+credentials are stored in the repository. `.env.example` is the template listing them:
 
-![aws-architecture.drawio.png](doc/aws-architecture.drawio.png)
+| Variable | Purpose |
+|---|---|
+| `DB_HOST`, `DB_PORT` (default `5432`), `DB_NAME` | PostgreSQL / Aurora PostgreSQL location |
+| `DB_USERNAME`, `DB_PASSWORD` | Database credentials |
+| `APP_PUBLIC_URL` | Public URL exposed by the app (`app.public.url`, defaults to `http://localhost:8080/`) |
 
+To use it, copy `.env.example` to `.env` and fill in the values. `.env` is git-ignored — never
+commit real credentials. On AWS the same variables are provided by the ECS task definition
+instead (see the infrastructure repository above).
 
-
-## Quick start
+## Local Quick start
 
 ```bash
 # Build (skip tests)
