@@ -4,7 +4,8 @@ spring:
   profiles:
     #active: postgres
     #active: h2
-    active: aws-rds
+    active: dev
+    #active: prod
   flyway:
     enabled: true
     locations: classpath:db/migration

@@ -44,7 +44,11 @@ Parameters:
 Resources:
 
   # ── ECS Task Execution Role ──────────────────────────────────────────────────
-  # Used by the ECS agent to pull images from ECR and ship logs to CloudWatch.
+  # Used by the ECS agent to pull images from ECR, ship logs to CloudWatch, and
+  # resolve the container definition's "Secrets" (valueFrom) entries at task
+  # startup - e.g. DB_USERNAME/DB_PASSWORD pulled from the Aurora DB secret in
+  # aws-ecs-service-stack.yml. This is a DIFFERENT role from the task role
+  # below, which the running application process itself assumes.
   EcsTaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -58,6 +62,15 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: !Sub "${Environment}-${ProductName}-${AppServiceName}-ecs-execution-secrets-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:*:*:secret:${Environment}-${ProductName}-${AppServiceName}-db-secret*"
       Tags:
         - Key: ProductName
           Value: !Ref ProductName
@@ -97,10 +110,6 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: !Sub "arn:aws:logs:*:*:log-group:/ecs/${Environment}-${ProductName}-${AppServiceName}*"
-              - Effect: Allow
-                Action:
-                  - secretsmanager:GetSecretValue
-                Resource: !Sub "arn:aws:secretsmanager:*:*:secret:${Environment}-${ProductName}-${AppServiceName}-db-secret*"
       Tags:
         - Key: AppServiceName
           Value: !Ref AppServiceName

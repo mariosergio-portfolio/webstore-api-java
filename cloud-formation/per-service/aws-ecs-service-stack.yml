@@ -22,6 +22,15 @@ Description: "Generic - ECS service for one AppComponent microservice (deployed 
 #   - aws-codebuild-stack.yml (ECR repository URI)
 #   - aws-rds-aurora-stack.yml (db endpoint/port/name, db secret ARN)
 #
+# The container runs the Spring profile matching Environment (dev/staging/prod)
+# and connects to the Aurora cluster from aws-rds-aurora-stack.yml - each of
+# those profile's application-<env>.yml files reads DB_HOST/DB_PORT/DB_NAME/
+# DB_USERNAME/DB_PASSWORD. DB_HOST/DB_PORT/DB_NAME are passed as plain
+# environment variables; DB_USERNAME/DB_PASSWORD are resolved directly by the
+# ECS agent from the DB secret via the container definition's "Secrets"
+# (valueFrom) entries - no plaintext credentials in this template and no
+# application code needed to read Secrets Manager.
+#
 # Exports:
 #   - ${Environment}-${ProductName}-${AppServiceName}-ecs-service-name
 #
@@ -197,9 +206,20 @@ Resources:
             - Name: DB_NAME
               Value:
                 Fn::ImportValue: !Sub "${Environment}-${ProductName}-${AppServiceName}-db-name"
-            - Name: DB_SECRET_ARN
-              Value:
-                Fn::ImportValue: !Sub "${Environment}-${ProductName}-${AppServiceName}-db-secret-arn"
+          # Resolved by the ECS agent at task startup using the task EXECUTION
+          # role (see aws-iam-stack.yml) - never passed as plaintext and never
+          # touched by application code.
+          Secrets:
+            - Name: DB_USERNAME
+              ValueFrom: !Sub
+                - "${SecretArn}:username::"
+                - SecretArn:
+                    Fn::ImportValue: !Sub "${Environment}-${ProductName}-${AppServiceName}-db-secret-arn"
+            - Name: DB_PASSWORD
+              ValueFrom: !Sub
+                - "${SecretArn}:password::"
+                - SecretArn:
+                    Fn::ImportValue: !Sub "${Environment}-${ProductName}-${AppServiceName}-db-secret-arn"
           LogConfiguration:
             LogDriver: awslogs
             Options:
