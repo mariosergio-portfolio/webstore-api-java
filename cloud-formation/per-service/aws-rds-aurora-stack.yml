@@ -28,6 +28,13 @@ Description: "Per-service - Aurora PostgreSQL cluster, subnet group, security gr
 # secretsmanager:GetSecretValue in aws-iam-stack.yml - no application code
 # ever touches Secrets Manager directly.
 #
+# EnableHttpEndpoint: true turns on the RDS Data API, which the AWS Console's
+# RDS Query Editor requires (it queries over HTTPS, not a direct :5432
+# connection). In the Query Editor, connect via "Connect with a Secrets
+# Manager ARN" and pick the ${Environment}-${ProductName}-${AppServiceName}-db-secret
+# secret - no manual username/password typing needed, and it works even
+# though the cluster has no public access.
+#
 # Deploy:
 #   aws cloudformation deploy \
 #     --template-file cloud-formation/per-service/aws-rds-aurora-stack.yml \
@@ -186,6 +193,7 @@ Resources:
       StorageEncrypted: true
       BackupRetentionPeriod: !Ref BackupRetentionDays
       DeletionProtection: !Ref DeletionProtection
+      EnableHttpEndpoint: true
       ServerlessV2ScalingConfiguration:
         MinCapacity: !Ref ServerlessMinCapacity
         MaxCapacity: !Ref ServerlessMaxCapacity
