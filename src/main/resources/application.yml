@@ -9,13 +9,19 @@ spring:
   profiles:
     #active: postgres
     #active: h2
-    active: dev
+    active: postgres
     #active: prod
   flyway:
     enabled: true
     locations: classpath:db/migration
-    baseline-on-migrate: true
-    baseline-version: 0
+    schemas: webstore
+    # This tells Flyway: on a non-empty schema with no history table, just record a baseline at version 0 instead of erroring out,
+    # then apply every migration with a version above that — which is both V1
+    # only required if you have an existing schema with no flyway history table,
+    #  eg: if you are migrating an existing database to use flyway for the first time.
+    #      or if you do not specifically want to start with a baseline version of 1, but rather 0.
+    #baseline-on-migrate: true
+    #baseline-version: 0
 
 management:
   endpoints:
