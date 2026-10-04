@@ -4,6 +4,7 @@ import com.mycompany.webstore.application.port.in.ReportPort;
 import com.mycompany.webstore.application.port.out.ReportQueryRepository;
 import com.mycompany.webstore.domain.model.Category;
 import com.mycompany.webstore.domain.model.ProductWithCategory;
+import com.mycompany.webstore.domain.model.Supplier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,5 +28,10 @@ public class ReportPortImpl implements ReportPort {
     @Override
     public List<ProductWithCategory> listProductsWithCategory() {
         return reportQueryRepository.findAllProductsWithCategory();
+    }
+
+    @Override
+    public List<Supplier> listSuppliers() {
+        return reportQueryRepository.findAllSuppliers();
     }
 }

@@ -13,7 +13,8 @@ spring:
     #active: prod
   flyway:
     enabled: true
-    locations: classpath:db/migration
+    # {vendor} resolves to "postgresql" or "h2": db/vendor/<vendor> holds DB-specific scripts (PostGIS vs. H2)
+    locations: classpath:db/migration,classpath:db/vendor/{vendor}
     schemas: webstore
     # This tells Flyway: on a non-empty schema with no history table, just record a baseline at version 0 instead of erroring out,
     # then apply every migration with a version above that — which is both V1
