@@ -34,12 +34,6 @@ public class CategoryController {
         return categoryPort.listCategories().stream().map(mapper::toResponse).toList();
     }
 
-    @Operation(summary = "List all categories (queried with jOOQ instead of JPA)")
-    @GetMapping("/jooq")
-    public List<CategoryResponse> listCategoriesJooq() {
-        return categoryPort.listCategoriesJooq().stream().map(mapper::toResponse).toList();
-    }
-
     @Operation(summary = "Get category by ID")
     @GetMapping("/{id}")
     public CategoryResponse getCategory(@PathVariable UUID id) {
