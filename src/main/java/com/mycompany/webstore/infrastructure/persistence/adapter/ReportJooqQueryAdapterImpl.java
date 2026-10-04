@@ -5,13 +5,16 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.webstore.application.port.out.ReportQueryRepository;
 import com.mycompany.webstore.domain.model.Category;
+import com.mycompany.webstore.domain.model.City;
 import com.mycompany.webstore.domain.model.ImageUrl;
 import com.mycompany.webstore.domain.model.Product;
 import com.mycompany.webstore.domain.model.ProductStatus;
 import com.mycompany.webstore.domain.model.ProductWithCategory;
+import com.mycompany.webstore.domain.model.Supplier;
 import org.jooq.DSLContext;
 import org.jooq.Field;
 import org.jooq.Record;
+import org.jooq.SQLDialect;
 import org.jooq.Table;
 import org.springframework.stereotype.Component;
 
@@ -21,7 +24,10 @@ import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static org.jooq.impl.DSL.count;
 import static org.jooq.impl.DSL.field;
 import static org.jooq.impl.DSL.table;
 
@@ -50,6 +56,21 @@ public class ReportJooqQueryAdapterImpl implements ReportQueryRepository {
     private static final Field<String> P_STATUS = field("p.status", String.class);
     private static final Field<LocalDateTime> P_CREATED_AT = field("p.created_at", LocalDateTime.class);
     private static final Field<LocalDateTime> P_UPDATED_AT = field("p.updated_at", LocalDateTime.class);
+
+    private static final Table<?> SUPPLIERS = table("suppliers s");
+    private static final Table<?> CITIES = table("cities ci");
+    private static final Field<UUID> S_ID = field("s.id", UUID.class);
+    private static final Field<String> S_NAME = field("s.name", String.class);
+    private static final Field<String> S_EMAIL = field("s.email", String.class);
+    private static final Field<UUID> S_CITY_ID = field("s.address_city_id", UUID.class);
+    private static final Field<UUID> P_SUPPLIER_ID = field("p.supplier_id", UUID.class);
+    private static final Field<UUID> CI_ID = field("ci.id", UUID.class);
+    private static final Field<String> CI_NAME = field("ci.name", String.class);
+    private static final Field<String> CI_STATE = field("ci.state", String.class);
+    private static final Field<String> CI_COUNTRY = field("ci.country", String.class);
+
+    private static final Pattern WKT_POINT =
+            Pattern.compile("POINT\\s*\\(\\s*(-?[0-9.eE+-]+)\\s+(-?[0-9.eE+-]+)\\s*\\)");
 
     private final DSLContext dsl;
 
@@ -102,5 +123,37 @@ public class ReportJooqQueryAdapterImpl implements ReportQueryRepository {
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Could not deserialize imageUrls from JSON: " + json, e);
         }
+    }
+
+    @Override
+    public List<Supplier> findAllSuppliers() {
+        // PostgreSQL stores cities.location as a PostGIS geometry (read as WKT via ST_AsText);
+        // the H2 dev schema stores the WKT text directly.
+        Field<String> location = field(
+                dsl.dialect().family() == SQLDialect.POSTGRES ? "ST_AsText(ci.location)" : "ci.location",
+                String.class);
+        Field<Integer> productCount = count(P_ID);
+
+        return dsl.select(S_ID, S_NAME, S_EMAIL, CI_ID, CI_NAME, CI_STATE, CI_COUNTRY, location, productCount)
+                .from(SUPPLIERS)
+                .join(CITIES).on(S_CITY_ID.eq(CI_ID))
+                .leftJoin(PRODUCTS).on(P_SUPPLIER_ID.eq(S_ID))
+                .groupBy(S_ID, S_NAME, S_EMAIL, CI_ID, CI_NAME, CI_STATE, CI_COUNTRY, location)
+                .orderBy(S_NAME)
+                .fetch(r -> {
+                    double[] lonLat = parsePoint(r.get(location));
+                    City city = new City(r.get(CI_ID), r.get(CI_NAME), r.get(CI_STATE),
+                            r.get(CI_COUNTRY), lonLat[1], lonLat[0]);
+                    return new Supplier(r.get(S_ID), r.get(S_NAME), r.get(S_EMAIL), city, r.get(productCount));
+                });
+    }
+
+    /** Parses WKT {@code POINT(lon lat)} into {@code [lon, lat]}. */
+    private static double[] parsePoint(String wkt) {
+        Matcher m = WKT_POINT.matcher(wkt == null ? "" : wkt);
+        if (!m.matches()) {
+            throw new IllegalArgumentException("Unexpected city location: " + wkt);
+        }
+        return new double[]{Double.parseDouble(m.group(1)), Double.parseDouble(m.group(2))};
     }
 }
