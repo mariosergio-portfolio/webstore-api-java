@@ -9,6 +9,8 @@ public interface CategoryPort {
 
     List<Category> listCategories();
 
+    List<Category> listCategoriesJooq();
+
     Category getCategoryById(UUID id);
 
     Category createCategory(Category category);

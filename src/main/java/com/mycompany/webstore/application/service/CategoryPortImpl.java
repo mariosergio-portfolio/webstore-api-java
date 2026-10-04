@@ -1,6 +1,7 @@
 package com.mycompany.webstore.application.service;
 
 import com.mycompany.webstore.application.port.in.CategoryPort;
+import com.mycompany.webstore.application.port.out.CategoryQueryRepository;
 import com.mycompany.webstore.application.port.out.CategoryRepository;
 import com.mycompany.webstore.domain.model.Category;
 import com.mycompany.webstore.shared.exception.BusinessRuleException;
@@ -15,14 +16,23 @@ import java.util.UUID;
 public class CategoryPortImpl implements CategoryPort {
 
     private final CategoryRepository categoryRepository;
+    private final CategoryQueryRepository categoryQueryRepository;
 
-    public CategoryPortImpl(CategoryRepository categoryRepository) {
+    public CategoryPortImpl(CategoryRepository categoryRepository,
+                            CategoryQueryRepository categoryQueryRepository) {
         this.categoryRepository = categoryRepository;
+        this.categoryQueryRepository = categoryQueryRepository;
     }
 
     @Override
     public List<Category> listCategories() {
         return categoryRepository.findAll();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Category> listCategoriesJooq() {
+        return categoryQueryRepository.findAll();
     }
 
     @Override
