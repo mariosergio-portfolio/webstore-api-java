@@ -30,14 +30,14 @@ public class ReportJooqQueryAdapterImpl implements ReportQueryRepository {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private static final Table<?> CATEGORIES = table("categories").as("c");
+    private static final Table<?> CATEGORIES = table("categories c");
     private static final Field<UUID> C_ID = field("c.id", UUID.class);
     private static final Field<String> C_NAME = field("c.name", String.class);
     private static final Field<String> C_SLUG = field("c.slug", String.class);
     private static final Field<UUID> C_PARENT_ID = field("c.parent_id", UUID.class);
     private static final Field<Integer> C_SORT_ORDER = field("c.sort_order", Integer.class);
 
-    private static final Table<?> PRODUCTS = table("products").as("p");
+    private static final Table<?> PRODUCTS = table("products p");
     private static final Field<UUID> P_ID = field("p.id", UUID.class);
     private static final Field<String> P_SKU = field("p.sku", String.class);
     private static final Field<String> P_NAME = field("p.name", String.class);
