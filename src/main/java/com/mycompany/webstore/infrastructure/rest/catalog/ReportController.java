@@ -1,9 +1,11 @@
 package com.mycompany.webstore.infrastructure.rest.catalog;
 
 import com.mycompany.webstore.application.port.in.ReportPort;
+import com.mycompany.webstore.domain.model.ProductWithCategory;
 import com.mycompany.webstore.domain.model.Supplier;
 import com.mycompany.webstore.infrastructure.rest.catalog.dto.CategoryResponse;
 import com.mycompany.webstore.infrastructure.rest.catalog.dto.CityResponse;
+import com.mycompany.webstore.infrastructure.rest.catalog.dto.ProductWithCategoryResponse;
 import com.mycompany.webstore.infrastructure.rest.catalog.dto.SupplierResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,10 +21,14 @@ import java.util.List;
 public class ReportController {
 
     private final ReportPort reportPort;
+    private final CategoryRestMapper categoryMapper;
+
     private final CategoryRestMapper mapper;
 
-    public ReportController(ReportPort reportPort, CategoryRestMapper mapper) {
+
+    public ReportController(ReportPort reportPort, CategoryRestMapper categoryMapper, CategoryRestMapper mapper) {
         this.reportPort = reportPort;
+        this.categoryMapper = categoryMapper;
         this.mapper = mapper;
     }
 
@@ -31,6 +37,23 @@ public class ReportController {
     public List<CategoryResponse> categories() {
         return reportPort.listCategories().stream().map(mapper::toResponse).toList();
     }
+
+
+    @Operation(summary = "List products with their category info (queried with jOOQ)")
+    @GetMapping("/products")
+    public List<ProductWithCategoryResponse> listProducts() {
+        return reportPort.listProductsWithCategory().stream().map(this::toResponse).toList();
+    }
+
+    private ProductWithCategoryResponse toResponse(ProductWithCategory pc) {
+        var p = pc.product();
+        return new ProductWithCategoryResponse(
+                p.getId(), p.getSku(), p.getName(), p.getDescription(), p.getPrice(),
+                p.getCurrency(), p.getStockQuantity(), p.getImageUrls(), p.getStatus(),
+                p.getCreatedAt(), p.getUpdatedAt(),
+                pc.category() == null ? null : categoryMapper.toResponse(pc.category()));
+    }
+
 
     @Operation(summary = "Suppliers report with address city and coordinates (queried with jOOQ)")
     @GetMapping("/suppliers")

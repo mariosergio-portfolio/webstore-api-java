@@ -7,9 +7,9 @@ spring:
   application:
     name: webstore-java
   profiles:
-    #active: postgres
+    active: postgres
     #active: h2
-    active: dev
+    #active: dev
     #active: prod
   flyway:
     enabled: true
