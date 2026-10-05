@@ -2,6 +2,7 @@ package com.mycompany.webstore.application.port.out;
 
 import com.mycompany.webstore.domain.model.Category;
 import com.mycompany.webstore.domain.model.City;
+import com.mycompany.webstore.domain.model.CityDistance;
 import com.mycompany.webstore.domain.model.ProductWithCategory;
 import com.mycompany.webstore.domain.model.Supplier;
 
@@ -17,4 +18,10 @@ public interface ReportQueryRepository {
     List<Supplier> findAllSuppliers();
 
     List<City> findAllCities();
+
+    /** Case-insensitive name match, optionally narrowed by country. */
+    List<City> findCitiesByName(String name, String country);
+
+    /** Cities within {@code radiusKm} of {@code origin}, excluding the origin itself, nearest first. */
+    List<CityDistance> findCitiesWithinKm(City origin, double radiusKm);
 }

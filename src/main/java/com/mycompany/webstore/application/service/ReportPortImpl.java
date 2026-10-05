@@ -4,6 +4,9 @@ import com.mycompany.webstore.application.port.in.ReportPort;
 import com.mycompany.webstore.application.port.out.ReportQueryRepository;
 import com.mycompany.webstore.domain.model.Category;
 import com.mycompany.webstore.domain.model.City;
+import com.mycompany.webstore.domain.model.CityDistance;
+import com.mycompany.webstore.shared.exception.BusinessRuleException;
+import com.mycompany.webstore.shared.exception.ResourceNotFoundException;
 import com.mycompany.webstore.domain.model.ProductWithCategory;
 import com.mycompany.webstore.domain.model.Supplier;
 import org.springframework.stereotype.Service;
@@ -39,5 +42,22 @@ public class ReportPortImpl implements ReportPort {
     @Override
     public List<City> listCities() {
         return reportQueryRepository.findAllCities();
+    }
+
+    @Override
+    public List<CityDistance> listCitiesWithinKm(String cityName, String country, double radiusKm) {
+        if (!(radiusKm > 0)) {
+            throw new BusinessRuleException("radiusKm must be greater than 0");
+        }
+        List<City> matches = reportQueryRepository.findCitiesByName(cityName.trim(),
+                country == null || country.isBlank() ? null : country.trim());
+        if (matches.isEmpty()) {
+            throw new ResourceNotFoundException("City not found: " + cityName);
+        }
+        if (matches.size() > 1) {
+            throw new BusinessRuleException(
+                    "City name '" + cityName + "' is ambiguous; specify the country parameter");
+        }
+        return reportQueryRepository.findCitiesWithinKm(matches.get(0), radiusKm);
     }
 }

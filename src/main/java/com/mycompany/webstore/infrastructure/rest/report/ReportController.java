@@ -13,6 +13,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import com.mycompany.webstore.infrastructure.rest.catalog.dto.CityDistanceResponse;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -61,6 +63,19 @@ public class ReportController {
     @GetMapping("/cities")
     public List<CityResponse> cities() {
         return reportPort.listCities().stream().map(this::toResponse).toList();
+    }
+
+    @Operation(summary = "Cities within radiusKm of a city, nearest first (PostGIS on PostgreSQL)")
+    @GetMapping("/cities/nearby")
+    public List<CityDistanceResponse> citiesNearby(
+            @RequestParam String city,
+            @RequestParam(required = false) String country,
+            @RequestParam double radiusKm) {
+        return reportPort.listCitiesWithinKm(city, country, radiusKm).stream()
+                .map(d -> new CityDistanceResponse(d.city().id(), d.city().name(), d.city().state(),
+                        d.city().country(), d.city().latitude(), d.city().longitude(),
+                        Math.round(d.distanceKm() * 10.0) / 10.0))
+                .toList();
     }
 
     @Operation(summary = "Suppliers report with address city and coordinates (queried with jOOQ)")
