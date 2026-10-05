@@ -178,6 +178,15 @@ The adapter checks `dsl.dialect().family()` and refuses to run the nearby search
 ## Try it
 
 1. Run PostgreSQL with the **PostGIS** extension available (e.g. the `postgis/postgis` Docker image) and start the app with the `postgres` profile.
+eg.:
+```bash
+podman run -d --name postgres-dev `
+  -e POSTGRES_PASSWORD=123 `
+  -v c:/dev/postgres-data `
+  -p 5432:5432 `
+  docker.io/postgis/postgis:17-3.5
+  
+```
 2. Open Swagger UI: `http://localhost:8080/webstore/swagger-ui.html` → **Reports (jOOQ)** → `GET /api/report/cities/nearby`.
 3. Or call it directly:
 
