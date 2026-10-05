@@ -183,18 +183,18 @@ public class ReportJooqQueryAdapterImpl implements ReportQueryRepository {
         if (dsl.dialect().family() != SQLDialect.POSTGRES) {
             throw new BusinessRuleException("Nearby-city search requires PostgreSQL with PostGIS");
         }
-        // Filtering, distance and ordering are all done by PostGIS on the WGS 84 spheroid;
-        // ST_DWithin uses the GIST index on cities.location.
-        String originPoint = "public.geography(public.ST_SetSRID(public.ST_MakePoint({0}, {1}), 4326))";
+        // Self-join: "co" is the origin city, "ci" the candidates. Filtering, distance and ordering are
+        // all done by PostGIS on the WGS 84 spheroid; the origin geometry never leaves the database.
         Field<Double> distanceKm = field(
-                "public.ST_Distance(public.geography(ci.location), " + originPoint + ") / 1000.0",
-                Double.class, val(origin.longitude()), val(origin.latitude()));
+                "public.ST_Distance(co.location::public.geography, ci.location::public.geography) / 1000.0",
+                Double.class);
         Condition within = condition(
-                "public.ST_DWithin(public.geography(ci.location), " + originPoint + ", {2})",
-                val(origin.longitude()), val(origin.latitude()), val(radiusKm * 1000.0));
+                "public.ST_DWithin(co.location::public.geography, ci.location::public.geography, {0})",
+                val(radiusKm * 1000.0));
         return dsl.select(CI_ID, CI_NAME, CI_STATE, CI_COUNTRY, location, distanceKm)
-                .from(CITIES)
-                .where(within.and(CI_ID.ne(origin.id())))
+                .from(table("cities co"))
+                .join(CITIES).on(CI_ID.ne(field("co.id", UUID.class)).and(within))
+                .where(field("co.id", UUID.class).eq(origin.id()))
                 .orderBy(distanceKm)
                 .fetch(r -> new CityDistance(toCity(r, location), r.get(distanceKm)));
     }
