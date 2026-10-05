@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/postgres?currentSchema=webstore,public #flyway is not able to create the database itself
+    url: jdbc:postgresql://localhost:5432/postgres?currentSchema=webstore #flyway is not able to create the database itself
     username: postgres
     password: 123
   jpa:
