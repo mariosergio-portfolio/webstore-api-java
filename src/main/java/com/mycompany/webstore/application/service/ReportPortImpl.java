@@ -3,6 +3,7 @@ package com.mycompany.webstore.application.service;
 import com.mycompany.webstore.application.port.in.ReportPort;
 import com.mycompany.webstore.application.port.out.ReportQueryRepository;
 import com.mycompany.webstore.domain.model.Category;
+import com.mycompany.webstore.domain.model.City;
 import com.mycompany.webstore.domain.model.ProductWithCategory;
 import com.mycompany.webstore.domain.model.Supplier;
 import org.springframework.stereotype.Service;
@@ -33,5 +34,10 @@ public class ReportPortImpl implements ReportPort {
     @Override
     public List<Supplier> listSuppliers() {
         return reportQueryRepository.findAllSuppliers();
+    }
+
+    @Override
+    public List<City> listCities() {
+        return reportQueryRepository.findAllCities();
     }
 }
