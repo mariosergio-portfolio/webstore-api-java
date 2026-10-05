@@ -2,6 +2,7 @@ package com.mycompany.webstore.infrastructure.rest.report;
 
 import com.mycompany.webstore.application.port.in.ReportPort;
 import com.mycompany.webstore.domain.model.ProductWithCategory;
+import com.mycompany.webstore.domain.model.City;
 import com.mycompany.webstore.domain.model.Supplier;
 import com.mycompany.webstore.infrastructure.rest.catalog.CategoryRestMapper;
 import com.mycompany.webstore.infrastructure.rest.catalog.dto.CategoryResponse;
@@ -56,6 +57,12 @@ public class ReportController {
     }
 
 
+    @Operation(summary = "Cities report with coordinates (queried with jOOQ)")
+    @GetMapping("/cities")
+    public List<CityResponse> cities() {
+        return reportPort.listCities().stream().map(this::toResponse).toList();
+    }
+
     @Operation(summary = "Suppliers report with address city and coordinates (queried with jOOQ)")
     @GetMapping("/suppliers")
     public List<SupplierResponse> suppliers() {
@@ -63,9 +70,10 @@ public class ReportController {
     }
 
     private SupplierResponse toResponse(Supplier s) {
-        var c = s.addressCity();
-        return new SupplierResponse(s.id(), s.name(), s.email(),
-                new CityResponse(c.id(), c.name(), c.state(), c.country(), c.latitude(), c.longitude()),
-                s.productCount());
+        return new SupplierResponse(s.id(), s.name(), s.email(), toResponse(s.addressCity()), s.productCount());
+    }
+
+    private CityResponse toResponse(City c) {
+        return new CityResponse(c.id(), c.name(), c.state(), c.country(), c.latitude(), c.longitude());
     }
 }

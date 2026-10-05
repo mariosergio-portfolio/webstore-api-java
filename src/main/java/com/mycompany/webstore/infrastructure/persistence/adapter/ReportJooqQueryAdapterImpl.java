@@ -127,11 +127,9 @@ public class ReportJooqQueryAdapterImpl implements ReportQueryRepository {
 
     @Override
     public List<Supplier> findAllSuppliers() {
-        // PostgreSQL stores cities.location as a PostGIS geometry (read as WKT via ST_AsText);
-        // the H2 dev schema stores the WKT text directly.
-        Field<String> location = field(
-                dsl.dialect().family() == SQLDialect.POSTGRES ? "public.ST_AsText(ci.location)" : "ci.location",
-                String.class);
+
+        Field<String> location = cityLocation();
+
         Field<Integer> productCount = count(P_ID);
 
         return dsl.select(S_ID, S_NAME, S_EMAIL, CI_ID, CI_NAME, CI_STATE, CI_COUNTRY, location, productCount)
@@ -146,6 +144,29 @@ public class ReportJooqQueryAdapterImpl implements ReportQueryRepository {
                             r.get(CI_COUNTRY), lonLat[1], lonLat[0]);
                     return new Supplier(r.get(S_ID), r.get(S_NAME), r.get(S_EMAIL), city, r.get(productCount));
                 });
+    }
+
+    @Override
+    public List<City> findAllCities() {
+        Field<String> location = cityLocation();
+        return dsl.select(CI_ID, CI_NAME, CI_STATE, CI_COUNTRY, location)
+                .from(CITIES)
+                .orderBy(CI_COUNTRY, CI_NAME)
+                .fetch(r -> {
+                    double[] lonLat = parsePoint(r.get(location));
+                    return new City(r.get(CI_ID), r.get(CI_NAME), r.get(CI_STATE),
+                            r.get(CI_COUNTRY), lonLat[1], lonLat[0]);
+                });
+    }
+
+    /**
+     * PostgreSQL stores cities.location as a PostGIS geometry (read as WKT via ST_AsText);
+     * the H2 dev schema stores the WKT text directly.
+     */
+    private Field<String> cityLocation() {
+        return field(
+                dsl.dialect().family() == SQLDialect.POSTGRES ? "ST_AsText(ci.location)" : "ci.location",
+                String.class);
     }
 
     /** Parses WKT {@code POINT(lon lat)} into {@code [lon, lat]}. */
