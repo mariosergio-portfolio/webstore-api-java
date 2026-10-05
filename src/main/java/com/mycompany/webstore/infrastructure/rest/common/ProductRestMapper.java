@@ -1,4 +1,4 @@
-package com.mycompany.webstore.infrastructure.rest.catalog;
+package com.mycompany.webstore.infrastructure.rest.common;
 
 import com.mycompany.webstore.domain.model.Product;
 import com.mycompany.webstore.infrastructure.rest.catalog.dto.ProductRequest;

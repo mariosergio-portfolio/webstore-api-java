@@ -130,7 +130,7 @@ public class ReportJooqQueryAdapterImpl implements ReportQueryRepository {
         // PostgreSQL stores cities.location as a PostGIS geometry (read as WKT via ST_AsText);
         // the H2 dev schema stores the WKT text directly.
         Field<String> location = field(
-                dsl.dialect().family() == SQLDialect.POSTGRES ? "ST_AsText(ci.location)" : "ci.location",
+                dsl.dialect().family() == SQLDialect.POSTGRES ? "public.ST_AsText(ci.location)" : "ci.location",
                 String.class);
         Field<Integer> productCount = count(P_ID);
 

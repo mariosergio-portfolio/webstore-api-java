@@ -1,8 +1,9 @@
-package com.mycompany.webstore.infrastructure.rest.catalog;
+package com.mycompany.webstore.infrastructure.rest.report;
 
 import com.mycompany.webstore.application.port.in.ReportPort;
 import com.mycompany.webstore.domain.model.ProductWithCategory;
 import com.mycompany.webstore.domain.model.Supplier;
+import com.mycompany.webstore.infrastructure.rest.catalog.CategoryRestMapper;
 import com.mycompany.webstore.infrastructure.rest.catalog.dto.CategoryResponse;
 import com.mycompany.webstore.infrastructure.rest.catalog.dto.CityResponse;
 import com.mycompany.webstore.infrastructure.rest.catalog.dto.ProductWithCategoryResponse;

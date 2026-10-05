@@ -5,6 +5,7 @@ import com.mycompany.webstore.domain.model.Product;
 import com.mycompany.webstore.domain.model.ProductStatus;
 import com.mycompany.webstore.infrastructure.rest.catalog.dto.ProductRequest;
 import com.mycompany.webstore.infrastructure.rest.catalog.dto.ProductResponse;
+import com.mycompany.webstore.infrastructure.rest.common.ProductRestMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
