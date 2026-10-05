@@ -10,6 +10,8 @@ Web Store REST API — **Catalog module** (Products + Categories), built with **
 
 Swagger UI: `http://localhost:8080/swagger-ui.html`
 
+Reports module (jOOQ + PostGIS, including `GET /api/report/cities/nearby`): see [README-report-postGIS.md](README-report-postGIS.md).
+
 ---
 
 ## Architecture: Hexagonal (Ports & Adapters)
