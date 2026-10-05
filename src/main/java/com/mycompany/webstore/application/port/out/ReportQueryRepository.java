@@ -1,6 +1,7 @@
 package com.mycompany.webstore.application.port.out;
 
 import com.mycompany.webstore.domain.model.Category;
+import com.mycompany.webstore.domain.model.City;
 import com.mycompany.webstore.domain.model.ProductWithCategory;
 import com.mycompany.webstore.domain.model.Supplier;
 
@@ -14,4 +15,6 @@ public interface ReportQueryRepository {
     List<ProductWithCategory> findAllProductsWithCategory();
 
     List<Supplier> findAllSuppliers();
+
+    List<City> findAllCities();
 }
