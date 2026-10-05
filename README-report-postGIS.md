@@ -139,7 +139,7 @@ geometry never leaves the database.
 
 ### How jOOQ is used
 
-jOOQ is on the classpath through `spring-boot-starter-jooq`; Spring Boot provides the `DSLContext`
+jOOQ (Java Object Oriented Querying) is on the classpath through `spring-boot-starter-jooq`; Spring Boot provides the `DSLContext`
 bean on top of the application's `DataSource`, so jOOQ queries share the connection pool and the
 transaction of the service (`@Transactional(readOnly = true)` on `ReportPortImpl`).
 
