@@ -65,7 +65,7 @@ public class ReportController {
         return reportPort.listCities().stream().map(this::toResponse).toList();
     }
 
-    @Operation(summary = "Cities within radiusKm of a city, nearest first (PostGIS on PostgreSQL)")
+    @Operation(summary = "Cities within radiusKm of a city, nearest first (PostGIS, PostgreSQL only)")
     @GetMapping("/cities/nearby")
     public List<CityDistanceResponse> citiesNearby(
             @RequestParam String city,

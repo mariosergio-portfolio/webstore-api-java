@@ -12,6 +12,7 @@ import com.mycompany.webstore.domain.model.Product;
 import com.mycompany.webstore.domain.model.ProductStatus;
 import com.mycompany.webstore.domain.model.ProductWithCategory;
 import com.mycompany.webstore.domain.model.Supplier;
+import com.mycompany.webstore.shared.exception.BusinessRuleException;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
@@ -24,7 +25,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -76,8 +76,6 @@ public class ReportJooqQueryAdapterImpl implements ReportQueryRepository {
 
     private static final Pattern WKT_POINT =
             Pattern.compile("POINT\\s*\\(\\s*(-?[0-9.eE+-]+)\\s+(-?[0-9.eE+-]+)\\s*\\)");
-
-    private static final double EARTH_RADIUS_KM = 6371.0088;
 
     private final DSLContext dsl;
 
@@ -182,42 +180,28 @@ public class ReportJooqQueryAdapterImpl implements ReportQueryRepository {
     @Override
     public List<CityDistance> findCitiesWithinKm(City origin, double radiusKm) {
         Field<String> location = cityLocation();
-        if (dsl.dialect().family() == SQLDialect.POSTGRES) {
-            // Geodesic distance on the WGS 84 spheroid; ST_DWithin uses the GIST index on cities.location.
-            String originPoint = "public.geography(public.ST_SetSRID(public.ST_MakePoint({0}, {1}), 4326))";
-            Field<Double> distanceKm = field(
-                    "public.ST_Distance(public.geography(ci.location), " + originPoint + ") / 1000.0",
-                    Double.class, val(origin.longitude()), val(origin.latitude()));
-            Condition within = condition(
-                    "public.ST_DWithin(public.geography(ci.location), " + originPoint + ", {2})",
-                    val(origin.longitude()), val(origin.latitude()), val(radiusKm * 1000.0));
-            return dsl.select(CI_ID, CI_NAME, CI_STATE, CI_COUNTRY, location, distanceKm)
-                    .from(CITIES)
-                    .where(within.and(CI_ID.ne(origin.id())))
-                    .orderBy(distanceKm)
-                    .fetch(r -> new CityDistance(toCity(r, location), r.get(distanceKm)));
+        if (dsl.dialect().family() != SQLDialect.POSTGRES) {
+            throw new BusinessRuleException("Nearby-city search requires PostgreSQL with PostGIS");
         }
-        // H2 (dev) has no spatial functions: compute the great-circle distance in Java.
-        return findAllCities().stream()
-                .filter(c -> !c.id().equals(origin.id()))
-                .map(c -> new CityDistance(c, haversineKm(origin, c)))
-                .filter(d -> d.distanceKm() <= radiusKm)
-                .sorted(Comparator.comparingDouble(CityDistance::distanceKm))
-                .toList();
+        // Filtering, distance and ordering are all done by PostGIS on the WGS 84 spheroid;
+        // ST_DWithin uses the GIST index on cities.location.
+        String originPoint = "public.geography(public.ST_SetSRID(public.ST_MakePoint({0}, {1}), 4326))";
+        Field<Double> distanceKm = field(
+                "public.ST_Distance(public.geography(ci.location), " + originPoint + ") / 1000.0",
+                Double.class, val(origin.longitude()), val(origin.latitude()));
+        Condition within = condition(
+                "public.ST_DWithin(public.geography(ci.location), " + originPoint + ", {2})",
+                val(origin.longitude()), val(origin.latitude()), val(radiusKm * 1000.0));
+        return dsl.select(CI_ID, CI_NAME, CI_STATE, CI_COUNTRY, location, distanceKm)
+                .from(CITIES)
+                .where(within.and(CI_ID.ne(origin.id())))
+                .orderBy(distanceKm)
+                .fetch(r -> new CityDistance(toCity(r, location), r.get(distanceKm)));
     }
 
     private City toCity(Record r, Field<String> location) {
         double[] lonLat = parsePoint(r.get(location));
         return new City(r.get(CI_ID), r.get(CI_NAME), r.get(CI_STATE), r.get(CI_COUNTRY), lonLat[1], lonLat[0]);
-    }
-
-    private static double haversineKm(City a, City b) {
-        double dLat = Math.toRadians(b.latitude() - a.latitude());
-        double dLon = Math.toRadians(b.longitude() - a.longitude());
-        double h = Math.pow(Math.sin(dLat / 2), 2)
-                + Math.cos(Math.toRadians(a.latitude())) * Math.cos(Math.toRadians(b.latitude()))
-                * Math.pow(Math.sin(dLon / 2), 2);
-        return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
     }
 
     /**
