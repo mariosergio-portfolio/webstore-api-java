@@ -165,7 +165,7 @@ public class ReportJooqQueryAdapterImpl implements ReportQueryRepository {
      */
     private Field<String> cityLocation() {
         return field(
-                dsl.dialect().family() == SQLDialect.POSTGRES ? "ST_AsText(ci.location)" : "ci.location",
+                dsl.dialect().family() == SQLDialect.POSTGRES ? "public.ST_AsText(ci.location)" : "ci.location",
                 String.class);
     }
 
